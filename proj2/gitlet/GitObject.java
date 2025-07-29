@@ -9,6 +9,7 @@ import static gitlet.Utils.*;
 public abstract class GitObject implements Serializable {
     private String id;
     private final String type;
+    private static final int VALID_ID_LENGTH = 40;
 
     public GitObject(String type) {
         this.type = type;
@@ -18,14 +19,13 @@ public abstract class GitObject implements Serializable {
 
     // Get file from an SHA-1 id
     public static File getFile(String id) {
-        if (id == null || id.length() != 40) {
+        if (id == null || id.length() != VALID_ID_LENGTH) {
             throw new IllegalArgumentException("Invalid SHA-1 ID provided.");
         }
         String dirName = id.substring(0, 2);
         String fileName = id.substring(2);
         return join(join(Repository.OBJECTS_DIR, dirName), fileName);
     }
-
 
     public String calculateId() {
         byte[] content = getSerializableContent();
@@ -44,14 +44,12 @@ public abstract class GitObject implements Serializable {
         writeObject(objectFile, this);
     }
 
-
     public String getId() {
         if (id == null) {
             id = calculateId();
         }
         return id;
     }
-
 
     public String getType() {
         return type;

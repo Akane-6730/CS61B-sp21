@@ -1,9 +1,12 @@
 package gitlet;
 
+import java.io.File;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.TreeMap;
+
+import static gitlet.Utils.readObject;
 
 public class Tree extends GitObject {
     /**
@@ -23,14 +26,63 @@ public class Tree extends GitObject {
 
     public static class TreeEntry implements Serializable {
         /** The type of the object this entry points to, either "blob" or "tree". */
-        public final String type;
+        private final String type;
         /** The SHA-1 hash of the object this entry points to. */
-        public final String id;
+        private final String id;
 
         public TreeEntry(String type, String id) {
             this.type = type;
             this.id = id;
         }
+
+        public String getId() {
+            return id;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public boolean isTree() {
+            return type.equals("tree");
+        }
+
+        public boolean isBlob() {
+            return type.equals("blob");
+        }
+
+        /**
+         * Loads the GitObject (Tree or Blob) that this entry points to from the disk.
+         * This is the core of the new encapsulated design.
+         * @return The loaded GitObject, or null if it cannot be found.
+         */
+        public GitObject loadContent() {
+            File objectFile = getFile(id);
+            if (!objectFile.exists()) {
+                return null;
+            }
+
+            if (isTree()) {
+                return readObject(objectFile, Tree.class);
+            } else if (isBlob()) {
+                return readObject(objectFile, Blob.class);
+            }
+
+            return null;
+        }
+    }
+
+    /**
+     * A static factory method for load a Tree from disk by its ID.
+     * @param id The SHA-1 ID of the Tree to load.
+     * @return The deserialized Tree object, or null if it doesn't exist.
+     */
+    public static Tree load(String id) {
+        File treeFile = getFile(id);
+        if (!treeFile.exists()) {
+            return null;
+        }
+        return readObject(treeFile, Tree.class);
     }
 
     /**
@@ -51,17 +103,12 @@ public class Tree extends GitObject {
         // This ensures the final string is always the same for the same set of entries.
         for (Map.Entry<String, TreeEntry> mapEntry : this.entries.entrySet()) {
             String name = mapEntry.getKey();
-            TreeEntry entryData = mapEntry.getValue();
+            TreeEntry entry = mapEntry.getValue();
 
             // Append each entry's information in a fixed, standardized format.
             // A simple format like "{type} {id} {name}\n" is robust and easy to debug.
             // The newline character '\n' acts as a clear separator between entries.
-            contentBuilder.append(entryData.type)
-                    .append(" ")
-                    .append(entryData.id)
-                    .append(" ")
-                    .append(name)
-                    .append("\n");
+            contentBuilder.append(entry.type).append(" ").append(entry.id).append(" ").append(name).append("\n");
         }
 
         // Convert the final, aggregated string into a byte array using a standard
@@ -85,4 +132,47 @@ public class Tree extends GitObject {
     public TreeEntry getEntry(String name) {
         return entries.get(name);
     }
+
+    /**
+     * Finds the blob ID for a given file path by recursively traversing the tree structure.
+     * @param filePath The standardized path of the file, e.g., "src/gitlet/Main.java".
+     * @return The blob ID as a String if found, otherwise null.
+     */
+    public String findBlobId(String filePath) {
+        String[] parts = filePath.split("/");
+        Tree currentTree = this;
+
+        // 1. Traverse through the directory parts
+        for (int i = 0; i < parts.length - 1; i++) {
+            String dirName = parts[i];
+            // Find next entry
+            TreeEntry entry = getEntry(dirName);
+            // Can't find
+            if (entry == null) {
+                return null;
+            }
+
+            GitObject nextObject = entry.loadContent();
+
+            if (nextObject instanceof Tree) {
+                currentTree = (Tree) nextObject;
+            } else {
+                return null;
+            }
+        }
+
+        // 2. Find the file in the final directory
+        String fileName = parts[parts.length - 1];
+        TreeEntry fileEntry = currentTree.getEntry(fileName);
+
+        if (fileEntry != null && fileEntry.isBlob()) {
+            return fileEntry.getId();
+        }
+
+        return null;
+    }
+
+    //    public void addEntry(String name, String type, String id) {
+    //        entries.put(name, new TreeEntry(type, id));
+    //    }
 }

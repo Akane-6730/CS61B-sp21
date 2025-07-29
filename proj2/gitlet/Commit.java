@@ -1,9 +1,12 @@
 package gitlet;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+
+import static gitlet.Utils.readObject;
 
 /** Represents a gitlet commit object.
  *
@@ -43,6 +46,19 @@ public class Commit extends GitObject {
         } else {
             this.timestamp = formatTimestamp(new Date());
         }
+    }
+
+    /**
+     * A static factory method to load a Commit from disk by its ID.
+     * @param id The SHA-1 ID of the commit to load.
+     * @return The deserialized Commit object, or null if it doesn't exist.
+     */
+    public static Commit load(String id) {
+        File commitFile = getFile(id);
+        if (!commitFile.exists()) {
+            return null;
+        }
+        return readObject(commitFile, Commit.class);
     }
 
     /**
@@ -86,6 +102,10 @@ public class Commit extends GitObject {
 
     public String getTreeId() {
         return treeId;
+    }
+
+    public Tree getTree() {
+        return readObject(getFile(treeId), Tree.class);
     }
 
     public String getParent() {

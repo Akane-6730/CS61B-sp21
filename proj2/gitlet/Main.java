@@ -1,5 +1,7 @@
 package gitlet;
 
+import java.util.Arrays;
+
 /** Driver class for Gitlet, a subset of the Git version-control system.
  *  @author Akane
  */
@@ -16,20 +18,44 @@ public class Main {
         }
 
         String firstArg = args[0];
+        int length = args.length;
 
         Repository repo = new Repository();
 
-        switch(firstArg) {
+        switch (firstArg) {
             case "init":
+                if (length != 1) {
+                    System.out.println("Incorrect operands.");
+                    System.exit(0);
+                }
                 repo.init();
+                return;
+            default:
                 break;
+        }
+
+        // Check if in an initialized Gitlet directory
+        if (!Repository.GITLET_DIR.exists()) {
+            System.out.println("Not in an initialized Gitlet directory.");
+            System.exit(0);
+        }
+
+        switch (firstArg) {
             case "add":
-                // TODO: handle the `add [filename]` command
+                checkNumberOfOperands(length, 2);
+                repo.add(Arrays.copyOfRange(args, 1, length));
                 break;
-            // TODO: FILL THE REST IN
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);
+        }
+    }
+
+    /** Helper method to check the number of operands. */
+    private static void checkNumberOfOperands(int actualLength, int atLeastLength) {
+        if (actualLength < atLeastLength) {
+            System.out.println("Incorrect operands.");
+            System.exit(0);
         }
     }
 }
