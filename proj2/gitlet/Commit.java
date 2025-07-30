@@ -139,4 +139,17 @@ public class Commit extends GitObject {
     public String getTrackedFileId(String path) {
         return getTree().findBlobId(path);
     }
+
+    public void printCommit() {
+        System.out.println("===");
+        System.out.println("commit " + getId());
+        if (getSecondParent() != null) {
+            String parent1Short = getParent().substring(0, 7);
+            String parent2Short = getSecondParent().substring(0, 7);
+            System.out.println("Merge: " + parent1Short + " " + parent2Short);
+        }
+        System.out.println("Date: " + getTimestamp());
+        System.out.println(getMessage());
+        System.out.println();
+    }
 }

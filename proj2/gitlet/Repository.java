@@ -1,6 +1,7 @@
 package gitlet;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 
 import static gitlet.Utils.*;
@@ -147,7 +148,7 @@ public class Repository {
      * (do not remove it unless it is tracked in the current commit).
      * @param filePaths the paths of the files to unstage.
      */
-    public void rm(String[] filePaths) {
+    public void remove(String[] filePaths) {
         Index index = Index.load();
         Commit currentCommit = getCurrentCommit();
         for (String filePath : filePaths) {
@@ -171,16 +172,7 @@ public class Repository {
     public void log() {
         Commit currentCommit = getCurrentCommit();
         while (currentCommit != null) {
-            System.out.println("===");
-            System.out.println("commit " + currentCommit.getId());
-            if (currentCommit.getSecondParent() != null) {
-                String parent1Short = currentCommit.getParent().substring(0, 7);
-                String parent2Short = currentCommit.getSecondParent().substring(0, 7);
-                System.out.println("Merge: " + parent1Short + " " + parent2Short);
-            }
-            System.out.println("Date: " + currentCommit.getTimestamp());
-            System.out.println(currentCommit.getMessage());
-            System.out.println();
+            currentCommit.printCommit();
             String parentId = currentCommit.getParent();
             if (parentId == null) {
                 break;
@@ -189,6 +181,30 @@ public class Repository {
         }
     }
 
+    public void globalLog() {
+        String[] subDirNames = OBJECTS_DIR.list();
+        if (subDirNames == null) {
+            return;
+        }
+
+        for (String dirName : subDirNames) {
+            File subDir = join(OBJECTS_DIR, dirName);
+            List<String> objectFileNames = plainFilenamesIn(subDir);
+            if (objectFileNames == null) {
+                continue;
+            }
+
+            for (String fileName : objectFileNames) {
+                File objectFile = join(subDir, fileName);
+                try {
+                    Commit commit = readObject(objectFile, Commit.class);
+                    commit.printCommit();
+                } catch (IllegalArgumentException | ClassCastException e) {
+                    // not a commit object, skip it
+                }
+            }
+        }
+    }
 
     // =================================================================
     // Section 3: Private Helper Methods - Grouped by Feature
@@ -250,10 +266,6 @@ public class Repository {
         String branchName = parts[1].substring(parts[1].lastIndexOf("/") + 1);
         return branchName;
     }
-
-    // --- Commit Command Helpers ---
-
-
 
     // --- Add Command Helpers ---
 

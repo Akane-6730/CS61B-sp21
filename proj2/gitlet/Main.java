@@ -51,12 +51,15 @@ public class Main {
                 break;
             case "rm":
                 checkNumberOfOperands(length, 2);
-                repo.rm(Arrays.copyOfRange(args, 1, length));
+                repo.remove(Arrays.copyOfRange(args, 1, length));
                 break;
             case "log":
                 checkExactNumberOfOperands(length, 1);
                 repo.log();
                 break;
+            case "global-log":
+                checkExactNumberOfOperands(length, 1);
+                repo.globalLog();
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);
