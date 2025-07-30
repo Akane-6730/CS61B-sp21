@@ -129,4 +129,14 @@ public class Commit extends GitObject {
         Tree tree = getTree();
         return tree.getAllFiles();
     }
+
+    /**
+     * Returns the SHA-1 ID of the blob object representing the given file path.
+     * If the file is not tracked by Git, returns null.
+     * @param path The path of the file to look up.
+     * @return The SHA-1 ID of the blob object representing the file, or null if it's not tracked.
+     */
+    public String getTrackedFileId(String path) {
+        return getTree().findBlobId(path);
+    }
 }

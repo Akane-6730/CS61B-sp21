@@ -82,6 +82,14 @@ public class Index implements Serializable {
     }
 
     /**
+     * Unstages a file only from addition list.
+     * @param filepath The relative path of the file to unstage.
+     */
+    public void unstageAddition(String filepath) {
+        stagedForAddition.remove(filepath);
+    }
+
+    /**
      * Clears the staging area. Called after a commit.
      */
     public void clear() {
@@ -98,6 +106,10 @@ public class Index implements Serializable {
      */
     public String getStagedAdditionId(String filePath) {
         return stagedForAddition.get(filePath);
+    }
+
+    public boolean isStagedForAddition(String filepath) {
+        return stagedForAddition.containsKey(filepath);
     }
 
     /**
@@ -135,9 +147,6 @@ public class Index implements Serializable {
         return Collections.unmodifiableMap(stagedForRemoval);
     }
 
-//    public boolean isStaged(String filepath) {
-//        return stagedForAddition.containsKey(filepath);
-//    }
 
     // ================================================================
     //  I/O

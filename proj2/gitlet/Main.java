@@ -52,6 +52,10 @@ public class Main {
                 }
                 repo.commit(args[1]);
                 break;
+            case "rm":
+                checkNumberOfOperands(length, 2);
+                repo.rm(Arrays.copyOfRange(args, 1, length));
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);

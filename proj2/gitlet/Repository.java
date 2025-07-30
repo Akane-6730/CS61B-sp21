@@ -140,6 +140,33 @@ public class Repository {
         index.save();
     }
 
+    /**
+     * Unstage the file if it is currently staged for addition.
+     * If the file is tracked in the current commit, stage it for removal and remove
+     * the file from the working directory if the user has not already done so
+     * (do not remove it unless it is tracked in the current commit).
+     * @param filePaths
+     */
+    public void rm(String[] filePaths) {
+        Index index = Index.load();
+        Commit currentCommit = getCurrentCommit();
+        for (String filePath : filePaths) {
+            String trackedFileId = currentCommit.getTrackedFileId(filePath);
+            // If the file is tracked, remove it from the index and delete it from the working directory.
+            if (trackedFileId != null) {
+                index.remove(filePath, trackedFileId);
+                restrictedDelete(join(CWD, filePath));
+            } else if (index.isStagedForAddition(filePath)) {
+                // If the file is in the index, remove it
+                index.unstageAddition(filePath);
+            } else {
+                System.out.println("No reason to remove the file.");
+                return;
+            }
+        }
+        index.save();
+    }
+
     // =================================================================
     // Section 3: Private Helper Methods - Grouped by Feature
     // =================================================================
