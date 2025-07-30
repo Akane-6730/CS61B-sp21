@@ -121,6 +121,10 @@ public class Index implements Serializable {
         return stagedForRemoval.containsKey(filePath);
     }
 
+    public boolean isUnStaged(String filepath) {
+        return !stagedForAddition.containsKey(filepath) && !stagedForRemoval.containsKey(filepath);
+    }
+
     /**
      * Checks if the staging area is completely empty.
      * @return true if no files are staged for addition or removal.

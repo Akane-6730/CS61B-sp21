@@ -61,6 +61,10 @@ public class Main {
                 checkExactNumberOfOperands(length, 1);
                 repo.globalLog();
                 break;
+            case "status":
+                checkExactNumberOfOperands(length, 1);
+                repo.status();
+                break;
             case "checkout":
                 if (length == 2) {
                     // java gitlet.Main checkout [branch name]

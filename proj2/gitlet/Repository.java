@@ -1,11 +1,9 @@
 package gitlet;
 
 import java.io.File;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static gitlet.Utils.*;
-
 
 /** Represents a gitlet repository.
  *
@@ -169,7 +167,6 @@ public class Repository {
         index.save();
     }
 
-
     public void log() {
         Commit currentCommit = getCurrentCommit();
         while (currentCommit != null) {
@@ -206,6 +203,49 @@ public class Repository {
             }
         }
     }
+
+    public void status() {
+        Index index = Index.load();
+
+        // Branches
+        System.out.println("=== Branches ===");
+        String currentBranch = getCurrentBranch();
+        List<String> branchNames = plainFilenamesIn(HEADS_DIR);
+        assert branchNames != null;
+        for (String branchName : branchNames) {
+            if (branchName.equals(currentBranch)) {
+                System.out.println("*" + branchName);
+            } else {
+                System.out.println(branchName);
+            }
+        }
+        System.out.println();
+
+        // Staged Files
+        System.out.println("=== Staged Files ===");
+        index.getStagedAdditions().forEach((filePath, blobId) -> {
+            System.out.println(filePath);
+        });
+        System.out.println();
+
+        // Removed Files
+        System.out.println("=== Removed Files ===");
+        index.getStagedRemovals().forEach((filePath, blobId) -> {
+            System.out.println(filePath);
+        });
+        System.out.println();
+
+        // Modifications Not Staged For Commit
+        System.out.println("=== Modifications Not Staged For Commit ===");
+
+        System.out.println();
+
+        // Untracked Files
+        System.out.println("=== Untracked Files ===");
+        printUntrackedFiles();
+        System.out.println();
+    }
+
 
     public void checkoutBranch(String branchName) {
 
@@ -389,5 +429,50 @@ public class Repository {
         byte[] content = Blob.load(targetBlobId).getSerializableContent();
         File targetFile = join(CWD, filePath);
         writeContents(targetFile, content);
+    }
+
+    // --- Status Command Helpers ---
+    private void printUntrackedFiles() {
+        Index index = Index.load();
+        List<String> untrackedFiles = new ArrayList<>();
+
+        Commit headCommit = getCurrentCommit();
+        Set<String> trackedFiles = headCommit.getAllFiles().keySet();
+        Set<String> stagedForAdditionFileNames = index.getStagedAdditions().keySet();
+        Set<String> stagedForRemovalFileNames = index.getStagedRemovals().keySet();
+        getUntrackedFiles("", trackedFiles, stagedForAdditionFileNames, stagedForRemovalFileNames, untrackedFiles);
+
+        Collections.sort(untrackedFiles);
+        untrackedFiles.forEach(System.out::println);
+    }
+
+    // Including files that have been staged for removal, but then re-created without Gitlet’s knowledge.
+    private void getUntrackedFiles(String dirPath, Set<String> trackedFiles,
+                                   Set<String> stagedForAdditionFiles,
+                                   Set<String> stagedForRemovalFiles,
+                                   List<String> untrackedFiles) {
+        String[] files = join(CWD, dirPath).list();
+        if (files == null) {
+            return;
+        }
+        for (String fileName : files) {
+            if (fileName.equals(".gitlet")) {
+                continue;
+            }
+
+            String filePath = join(dirPath, fileName).getPath().replace('\\', '/');
+            boolean isTrackedAndNotRemoved = trackedFiles.contains(filePath)
+                    && !stagedForRemovalFiles.contains(filePath);
+            boolean isStagedForAddition = stagedForAdditionFiles.contains(filePath);
+
+            if (!isTrackedAndNotRemoved && !isStagedForAddition) {
+                if (new File(filePath).isDirectory()) {
+                    getUntrackedFiles(filePath, trackedFiles, stagedForAdditionFiles,
+                            stagedForRemovalFiles, untrackedFiles);
+                } else {
+                    untrackedFiles.add(filePath);
+                }
+            }
+        }
     }
 }
