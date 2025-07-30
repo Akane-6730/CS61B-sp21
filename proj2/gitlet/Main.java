@@ -46,15 +46,16 @@ public class Main {
                 repo.add(Arrays.copyOfRange(args, 1, length));
                 break;
             case "commit":
-                if (length != 2) {
-                    System.out.println("Incorrect operands.");
-                    System.exit(0);
-                }
+                checkExactNumberOfOperands(length, 2);
                 repo.commit(args[1]);
                 break;
             case "rm":
                 checkNumberOfOperands(length, 2);
                 repo.rm(Arrays.copyOfRange(args, 1, length));
+                break;
+            case "log":
+                checkExactNumberOfOperands(length, 1);
+                repo.log();
                 break;
             default:
                 System.out.println("No command with that name exists.");
@@ -65,6 +66,13 @@ public class Main {
     /** Helper method to check the number of operands. */
     private static void checkNumberOfOperands(int actualLength, int atLeastLength) {
         if (actualLength < atLeastLength) {
+            System.out.println("Incorrect operands.");
+            System.exit(0);
+        }
+    }
+
+    private static void checkExactNumberOfOperands(int actualLength, int exactlyLength) {
+        if (actualLength != exactlyLength) {
             System.out.println("Incorrect operands.");
             System.exit(0);
         }

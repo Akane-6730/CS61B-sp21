@@ -145,7 +145,7 @@ public class Repository {
      * If the file is tracked in the current commit, stage it for removal and remove
      * the file from the working directory if the user has not already done so
      * (do not remove it unless it is tracked in the current commit).
-     * @param filePaths
+     * @param filePaths the paths of the files to unstage.
      */
     public void rm(String[] filePaths) {
         Index index = Index.load();
@@ -166,6 +166,29 @@ public class Repository {
         }
         index.save();
     }
+
+
+    public void log() {
+        Commit currentCommit = getCurrentCommit();
+        while (currentCommit != null) {
+            System.out.println("===");
+            System.out.println("commit " + currentCommit.getId());
+            if (currentCommit.getSecondParent() != null) {
+                String parent1Short = currentCommit.getParent().substring(0, 7);
+                String parent2Short = currentCommit.getSecondParent().substring(0, 7);
+                System.out.println("Merge: " + parent1Short + " " + parent2Short);
+            }
+            System.out.println("Date: " + currentCommit.getTimestamp());
+            System.out.println(currentCommit.getMessage());
+            System.out.println();
+            String parentId = currentCommit.getParent();
+            if (parentId == null) {
+                break;
+            }
+            currentCommit = Commit.load(parentId);
+        }
+    }
+
 
     // =================================================================
     // Section 3: Private Helper Methods - Grouped by Feature
