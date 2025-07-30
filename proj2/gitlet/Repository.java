@@ -1,6 +1,8 @@
 package gitlet;
 
 import java.io.File;
+import java.util.Map;
+
 import static gitlet.Utils.*;
 
 
@@ -22,8 +24,7 @@ public class Repository {
     public static final File HEADS_DIR = join(REFS_DIR, "heads");
     /** The file that stores a reference to the current head (e.g., "ref: refs/heads/master"). */
     public static final File HEAD_FILE = join(GITLET_DIR, "HEAD");
-    /** Staging area index file (.gitlet/index) tracking added but uncommitted changes */
-    private static final File INDEX = join(GITLET_DIR, "index");
+
 
     private static final String INITIAL_COMMIT_MESSAGE = "initial commit";
     private static final String MASTER = "master";
@@ -66,7 +67,7 @@ public class Repository {
      * @param fileNames the files to add to the staging area.
      */
     public void add(String[] fileNames) {
-        Index index = readStagingArea();
+        Index index = Index.load();
 
         // Get the current commit and its tree for comparison.
         Commit currentCommit = getCurrentCommit();
@@ -88,9 +89,56 @@ public class Repository {
             }
         }
 
-        writeStagingArea(index);
+        index.save();
     }
 
+    /**
+     * Commits the changes in the staging area.
+     * @param message the commit message.
+     */
+    public void commit(String message) {
+        Index index = Index.load();
+        // Pre-check
+        if (index.isEmpty()) {
+            System.out.println("No changes added to the commit.");
+            return;
+        }
+        if (message == null || message.isEmpty()) {
+            System.out.println("Please enter a commit message.");
+            return;
+        }
+
+        String headCommitId = getHeadCommitId();
+        Commit headCommit = Commit.load(headCommitId);
+        Map<String, String> filesToCommit = headCommit.getAllFiles();
+
+        // Update the map
+        // add / modify files
+        filesToCommit.putAll(index.getStagedAdditions());
+        for (String filePath : index.getStagedRemovals().keySet()) {
+            filesToCommit.remove(filePath);
+        }
+
+        Tree newTree = Tree.buildTreeFromMap(filesToCommit);
+        newTree.save();
+        String newTreeId = newTree.getId();
+
+        // TODO: What if it's the merge case?
+
+        Commit newCommit = new Commit(message, headCommitId, null, newTreeId);
+        newCommit.save();
+
+        // --- Update the repository state ---
+        // Update the head of the branch
+        String currentBranch = getCurrentBranch();
+        updateBranchHead(currentBranch, newCommit.getId());
+        // Update the HEAD
+        updateHead(currentBranch);
+
+        // Clear the staging area
+        index.clear();
+        index.save();
+    }
 
     // =================================================================
     // Section 3: Private Helper Methods - Grouped by Feature
@@ -125,6 +173,36 @@ public class Repository {
         String headCommitId = getHeadCommitId();
         return Commit.load(headCommitId);
     }
+
+    /**
+     * Commits the changes in the staging area.
+     * @param branchName the name of the branch to commit to.
+     */
+    private void updateHead(String branchName) {
+        File branchFile = join(HEADS_DIR, branchName);
+        // Get the path relative to the .gitlet directory for consistency.
+        String relativePath = GITLET_DIR.toURI().relativize(branchFile.toURI()).getPath();
+        // The content is always in the format "ref: [path_to_ref_file]"
+        writeContents(HEAD_FILE, "ref: " + relativePath);
+    }
+
+    private void updateBranchHead(String branchName, String commitId) {
+        File branchFile = join(HEADS_DIR, branchName);
+        writeContents(branchFile, commitId);
+    }
+
+    private String getCurrentBranch() {
+        String headRef = readContentsAsString(HEAD_FILE);
+        String[] parts = headRef.split(" ");
+        if (parts.length < 2) {
+            throw new GitletException("HEAD file is corrupted.");
+        }
+        String branchName = parts[1].substring(parts[1].lastIndexOf("/") + 1);
+        return branchName;
+    }
+
+    // --- Commit Command Helpers ---
+
 
 
     // --- Add Command Helpers ---
@@ -201,35 +279,6 @@ public class Repository {
                 addFile(childPath, headTree, index);
             }
         }
-    }
-
-    /**
-     * Commits the changes in the staging area.
-     * @param branchName the name of the branch to commit to.
-     */
-    private void updateHead(String branchName) {
-        File branchFile = join(HEADS_DIR, branchName);
-        // Get the path relative to the .gitlet directory for consistency.
-        String relativePath = GITLET_DIR.toURI().relativize(branchFile.toURI()).getPath();
-        // The content is always in the format "ref: [path_to_ref_file]"
-        writeContents(HEAD_FILE, "ref: " + relativePath);
-    }
-
-
-    private void updateBranchHead(String branchName, String commitId) {
-        File branchFile = join(HEADS_DIR, branchName);
-        writeContents(branchFile, commitId);
-    }
-
-    private Index readStagingArea() {
-        if (!INDEX.exists()) {
-            return new Index(); // Return a new, clean Index object
-        }
-        return readObject(INDEX, Index.class);
-    }
-
-    private void writeStagingArea(Index index) {
-        writeObject(INDEX, index);
     }
 
 }

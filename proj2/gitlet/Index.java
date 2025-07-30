@@ -1,8 +1,12 @@
 package gitlet;
 
+import java.io.File;
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.Map;
 import java.util.TreeMap;
+
+import static gitlet.Utils.*;
 
 /**
  * Represents the Gitlet staging area, also known as the "index".
@@ -11,6 +15,8 @@ import java.util.TreeMap;
  * This entire object is serialized to the .gitlet/index file.
  */
 public class Index implements Serializable {
+    /** Staging area index file (.gitlet/index) tracking added but uncommitted changes */
+    private static final File INDEX = join(Repository.GITLET_DIR, "index");
 
     /**
      * Tracks files that are staged for addition.
@@ -25,6 +31,8 @@ public class Index implements Serializable {
      * Value: The SHA-1 ID of the blob from the *last* commit (for reference).
      */
     private final TreeMap<String, String> stagedForRemoval;
+
+
 
     /**
      * Constructor for a new, empty Index.
@@ -109,7 +117,48 @@ public class Index implements Serializable {
         return stagedForAddition.isEmpty() && stagedForRemoval.isEmpty();
     }
 
+    /**
+     * Returns a read-only view of the files staged for addition.
+     * The returned map cannot be modified.
+     * @return An unmodifiable map of file paths to blob IDs.
+     */
+    public Map<String, String> getStagedAdditions() {
+        return Collections.unmodifiableMap(stagedForAddition);
+    }
+
+    /**
+     * Returns a read-only view of the files staged for removal.
+     * The returned map cannot be modified.
+     * @return An unmodifiable map of file paths to blob IDs.
+     */
+    public Map<String, String> getStagedRemovals() {
+        return Collections.unmodifiableMap(stagedForRemoval);
+    }
+
 //    public boolean isStaged(String filepath) {
 //        return stagedForAddition.containsKey(filepath);
 //    }
+
+    // ================================================================
+    //  I/O
+    // ================================================================
+
+    /**
+     * Loads the Index from the .gitlet/index file.
+     * If the file does not exist, returns a new, empty Index object.
+     * @return The Index object loaded from the file.
+     */
+    public static Index load() {
+        if (!INDEX.exists()) {
+            return new Index();  // Return a new, clean Index object
+        }
+        return readObject(INDEX, Index.class);
+    }
+
+    /**
+     * Saves the Index to the .gitlet/index file.
+     */
+    public void save() {
+        writeObject(INDEX, this);
+    }
 }

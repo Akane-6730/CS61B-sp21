@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Map;
 
 import static gitlet.Utils.readObject;
 
@@ -122,5 +123,10 @@ public class Commit extends GitObject {
 
     public String getTimestamp() {
         return timestamp;
+    }
+
+    public Map<String, String> getAllFiles() {
+        Tree tree = getTree();
+        return tree.getAllFiles();
     }
 }

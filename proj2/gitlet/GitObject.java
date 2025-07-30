@@ -33,6 +33,10 @@ public abstract class GitObject implements Serializable {
         return sha1(header.getBytes(StandardCharsets.UTF_8), content);
     }
 
+    protected void invalidateId() {
+        id = null;
+    }
+
     public void save() {
         File objectFile = getFile(getId());
         if (objectFile.exists()) {
@@ -44,6 +48,14 @@ public abstract class GitObject implements Serializable {
         writeObject(objectFile, this);
     }
 
+    /**
+     * Get the SHA-1 id of this object.
+     * If id is null, this method will set the id to the calculated value.
+     * 1. If it hasn't been calculated yet, calculate it first.
+     * 2. If it is invalid, calculate it again.
+     *
+     * @return the SHA-1 id of this object.
+     */
     public String getId() {
         if (id == null) {
             id = calculateId();

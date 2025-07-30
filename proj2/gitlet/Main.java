@@ -45,6 +45,13 @@ public class Main {
                 checkNumberOfOperands(length, 2);
                 repo.add(Arrays.copyOfRange(args, 1, length));
                 break;
+            case "commit":
+                if (length != 2) {
+                    System.out.println("Incorrect operands.");
+                    System.exit(0);
+                }
+                repo.commit(args[1]);
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);

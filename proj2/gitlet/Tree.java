@@ -3,6 +3,7 @@ package gitlet;
 import java.io.File;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -117,19 +118,11 @@ public class Tree extends GitObject {
     }
 
     /**
-     * Returns a read-only view of the entries in this tree.
-     * @return A map of names to TreeEntry objects.
-     */
-    public Map<String, TreeEntry> getEntries() {
-        return entries;
-    }
-
-    /**
      * Retrieves a specific TreeEntry by its name.
      * @param name The name of the file or directory.
      * @return The TreeEntry object, or null if no entry with that name exists.
      */
-    public TreeEntry getEntry(String name) {
+    private TreeEntry getEntry(String name) {
         return entries.get(name);
     }
 
@@ -172,7 +165,90 @@ public class Tree extends GitObject {
         return null;
     }
 
-    //    public void addEntry(String name, String type, String id) {
-    //        entries.put(name, new TreeEntry(type, id));
-    //    }
+    public Map<String, String> getAllFiles() {
+        Map<String, String> files = new TreeMap<>();
+        getAllFilesHelper("", files);
+        return files;
+    }
+
+    private void getAllFilesHelper(String basePath, Map<String, String> files) {
+        // entrySet() returns a Set view of the key-value pairs in the map.
+        for (Map.Entry<String, TreeEntry> entry : entries.entrySet()) {
+            String name = entry.getKey();
+            TreeEntry value = entry.getValue();
+            String currentPath = basePath.isEmpty() ? name : basePath + "/" + name;
+            if (value.isBlob()) {
+                files.put(currentPath, value.getId());
+            } else if (value.isTree()) {
+                Tree subTree = (Tree) value.loadContent();
+                if (subTree!= null) {
+                    subTree.getAllFilesHelper(currentPath, files);
+                }
+            }
+        }
+    }
+
+    /**
+     * Builds a Tree object from a map of file paths to their SHA-1 IDs.
+     *
+     * NOTE:
+     * - The root Tree object is not saved to disk, but its entries are saved to disk
+     * as they are added.
+     * - The root Tree's id is null (invalid)
+     * @param filesToCommit A map of file paths to their SHA-1 IDs.
+     * @return The root Tree object.
+     */
+    public static Tree buildTreeFromMap(Map<String, String> filesToCommit) {
+        Tree root = new Tree();
+        for (Map.Entry<String, String> entry : filesToCommit.entrySet()) {
+            String path = entry.getKey();
+            String id = entry.getValue();
+            root.addEntry(path, id);
+        }
+        return root;
+    }
+
+    /**
+     * Adds a new entry to the Tree object.
+     * @param path The path of the file or directory, e.g., "src/gitlet/Main.java".
+     * @param id The SHA-1 ID of the object this entry points to.
+     */
+    public void addEntry(String path, String id) {
+        if (path.length() == 0 || path.isEmpty()) {
+            return;
+        }
+        String[] parts = path.split("/");
+        String name = parts[0];
+
+        if (parts.length == 1) {
+            entries.put(name, new TreeEntry("blob", id));
+        } else {
+            Tree subTree;
+            TreeEntry entry = getEntry(name);
+            String subPath = String.join("/", Arrays.copyOfRange(parts, 1, parts.length));
+            if (entry != null && entry.isTree()) {
+                subTree = (Tree) entry.loadContent();
+            } else {
+                // 1. directory doesn't exist
+                // 2. the directory's name is same to the file's name
+                // e.g. head commit has a file named "foo",
+                // and we removed the file and want to add a file "foo/bar"
+                subTree = new Tree();
+            }
+            // Recursively add the entry to the subtree
+            subTree.addEntry(subPath, id);
+            // Save the subtree, which updates its id at the same time
+            subTree.save();
+            // Update or add the entry
+            // Note: subtree's id is already set to invalid in the recursive call,
+            // so getId() will recalculate the id
+            entries.put(name, new TreeEntry("tree", subTree.getId()));
+        }
+
+        invalidateId();
+    }
+
+    public boolean isEmpty() {
+        return entries.isEmpty();
+    }
 }
