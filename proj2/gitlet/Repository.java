@@ -111,6 +111,7 @@ public class Repository {
 
         String headCommitId = getHeadCommitId();
         Commit headCommit = Commit.load(headCommitId);
+        assert headCommit != null;
         Map<String, String> filesToCommit = headCommit.getAllFiles();
 
         // Update the map
@@ -206,6 +207,36 @@ public class Repository {
         }
     }
 
+    public void checkoutBranch(String branchName) {
+
+    }
+
+    /**
+     * Takes the version of the file as it exists in the head commit and puts it in the working directory,
+     * overwriting the version of the file that’s already there if there is one.
+     * The new version of the file is not staged.
+     * @param filePath the path of the file to checkout.
+     */
+    public void checkoutFileFromHead(String filePath) {
+        Commit currentCommit = getCurrentCommit();
+        restoreFile(currentCommit, filePath);
+    }
+
+    /**
+     * Takes the version of the file as it exists in the commit with the given id,
+     * and puts it in the working directory, overwriting the version of the file
+     * that’s already there if there is one. The new version of the file is not staged.
+     * @param commitId the id of the commit to checkout from.
+     * @param filePath the path of the file to checkout.
+     */
+    public void checkoutFileFromCommit(String commitId, String filePath) {
+        Commit commit = Commit.load(commitId);
+        if (commit == null) {
+            System.out.println("No commit with that id exists.");
+        }
+        restoreFile(commit, filePath);
+    }
+
     // =================================================================
     // Section 3: Private Helper Methods - Grouped by Feature
     // =================================================================
@@ -263,8 +294,7 @@ public class Repository {
         if (parts.length < 2) {
             throw new GitletException("HEAD file is corrupted.");
         }
-        String branchName = parts[1].substring(parts[1].lastIndexOf("/") + 1);
-        return branchName;
+        return parts[1].substring(parts[1].lastIndexOf("/") + 1);
     }
 
     // --- Add Command Helpers ---
@@ -343,4 +373,21 @@ public class Repository {
         }
     }
 
+    // --- Checkout Command Helpers ---
+
+    /**
+     * Restores the version of the file as it exists in the given commit
+     * @param commit The commit to restore from.
+     * @param filePath The path of the file to restore.
+     */
+    private void restoreFile(Commit commit, String filePath) {
+        String targetBlobId = commit.getTrackedFileId(filePath);
+        if (targetBlobId == null) {
+            System.out.println("File does not exist in that commit.");
+            return;
+        }
+        byte[] content = Blob.load(targetBlobId).getSerializableContent();
+        File targetFile = join(CWD, filePath);
+        writeContents(targetFile, content);
+    }
 }

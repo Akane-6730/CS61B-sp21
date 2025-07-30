@@ -181,7 +181,7 @@ public class Tree extends GitObject {
                 files.put(currentPath, value.getId());
             } else if (value.isTree()) {
                 Tree subTree = (Tree) value.loadContent();
-                if (subTree!= null) {
+                if (subTree != null) {
                     subTree.getAllFilesHelper(currentPath, files);
                 }
             }

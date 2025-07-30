@@ -60,6 +60,22 @@ public class Main {
             case "global-log":
                 checkExactNumberOfOperands(length, 1);
                 repo.globalLog();
+                break;
+            case "checkout":
+                if (length == 2) {
+                    // java gitlet.Main checkout [branch name]
+                    repo.checkoutBranch(args[1]);
+                } else if (length == 3 && args[1].equals("--")) {
+                    // java gitlet.Main checkout -- [file name]
+                    repo.checkoutFileFromHead(args[2]);
+                } else if (length == 4 && args[2].equals("--")) {
+                    // java gitlet.Main checkout [commit id] -- [file name]
+                    repo.checkoutFileFromCommit(args[1], args[3]);
+                } else {
+                    System.out.println("Incorrect operands.");
+                    System.exit(0);
+                }
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);
