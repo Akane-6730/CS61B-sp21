@@ -259,34 +259,10 @@ public class Repository {
         Commit targetCommit = Commit.load(targetCommitId);
 
         // --- Untracked File Overwrite Check ---
-        assert targetCommit != null;
-        Set<String> targetTrackedFiles = targetCommit.getAllFiles().keySet();
-        List<String> untrackedFiles = getUntrackedFiles();
-
-        for (String untrackedFile : untrackedFiles) {
-            if (targetTrackedFiles.contains(untrackedFile)) {
-                System.out.println("There is an untracked file in the way; "
-                        + "delete it, or add and commit it first.");
-                return;
-            }
+        boolean success = resetToCommit(targetCommit);
+        if (success) {
+            updateHead(branchName);
         }
-
-        // --- Perform Checkout Operations ---
-        for (String filePath : targetTrackedFiles) {
-            restoreFile(targetCommit, filePath);
-        }
-
-        Commit currentCommit = getCurrentCommit();
-        Set<String> currentTrackedFiles = currentCommit.getAllFiles().keySet();
-        for (String filePath : currentTrackedFiles) {
-            if (!targetTrackedFiles.contains(filePath)) {
-                restrictedDelete(join(CWD, filePath));
-            }
-        }
-
-        Index.clearIndex();
-
-        updateHead(branchName);
     }
 
     /**
@@ -336,6 +312,14 @@ public class Repository {
             return;
         }
         join(HEADS_DIR, branchName).delete();
+    }
+
+    public void reset(String commitId) {
+        Commit targetCommit = Commit.load(commitId);
+        boolean success = resetToCommit(targetCommit);
+        if (success) {
+            updateBranchHead(getCurrentBranch(), commitId);
+        }
     }
 
     // =================================================================
@@ -577,5 +561,41 @@ public class Repository {
                 }
             }
         }
+    }
+
+    // --- Checkout Branch & Reset Command Helpers ---
+    private boolean resetToCommit(Commit targetCommit) {
+        if (targetCommit == null) {
+            System.out.println("No commit with that id exists.");
+            return false;
+        }
+
+        Set<String> targetTrackedFiles = targetCommit.getAllFiles().keySet();
+        List<String> untrackedFiles = getUntrackedFiles();
+
+        for (String untrackedFile : untrackedFiles) {
+            if (targetTrackedFiles.contains(untrackedFile)) {
+                System.out.println("There is an untracked file in the way; "
+                        + "delete it, or add and commit it first.");
+                return false;
+            }
+        }
+
+        // restore files
+        for (String filePath : targetTrackedFiles) {
+            restoreFile(targetCommit, filePath);
+        }
+
+        // remove extra files
+        Commit currentCommit = getCurrentCommit();
+        Set<String> currentTrackedFiles = currentCommit.getAllFiles().keySet();
+        for (String filePath : currentTrackedFiles) {
+            if (!targetTrackedFiles.contains(filePath)) {
+                restrictedDelete(join(CWD, filePath));
+            }
+        }
+
+        Index.clearIndex();
+        return true;
     }
 }
