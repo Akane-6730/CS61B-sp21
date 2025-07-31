@@ -285,11 +285,12 @@ public class Repository {
      * @param filePath the path of the file to checkout.
      */
     public void checkoutFileFromCommit(String commitId, String filePath) {
-        Commit commit = Commit.load(commitId);
-        if (commit == null) {
+        String fullCommitId = resolveFullCommitId(commitId);
+        if (fullCommitId == null) {
             System.out.println("No commit with that id exists.");
             return;
         }
+        Commit commit = Commit.load(fullCommitId);
         restoreFile(commit, filePath);
     }
 
@@ -315,10 +316,15 @@ public class Repository {
     }
 
     public void reset(String commitId) {
-        Commit targetCommit = Commit.load(commitId);
+        String fullCommitId = resolveFullCommitId(commitId);
+        if (fullCommitId == null) {
+            System.out.println("No commit with that id exists.");
+            return;
+        }
+        Commit targetCommit = Commit.load(fullCommitId);
         boolean success = resetToCommit(targetCommit);
         if (success) {
-            updateBranchHead(getCurrentBranch(), commitId);
+            updateBranchHead(getCurrentBranch(), fullCommitId);
         }
     }
 
@@ -597,5 +603,52 @@ public class Repository {
 
         Index.clearIndex();
         return true;
+    }
+
+    /**
+     * Resolves a short or full commit ID to the full 40-character SHA-1 ID.
+     * This method searches the object database for a unique commit ID that starts
+     * with the given prefix.
+     *
+     * @param shortId The potentially abbreviated commit ID from the user.
+     * @return The full 40-character SHA-1 ID if a unique match is found;
+     * otherwise, returns null if the ID is not found or is ambiguous.
+     */
+    private String resolveFullCommitId(String shortId) {
+        // First, handle the common case of a full-length ID directly.
+        if (shortId != null && shortId.length() == 40) {
+            return GitObject.getFile(shortId).exists() ? shortId : null;
+        }
+
+        // Default the result to null. We only update it if a unique match is found.
+        String result = null;
+
+        // Proceed only if the shortId is a valid candidate for a prefix search.
+        if (shortId != null && shortId.length() >= 2) {
+            String subDirName = shortId.substring(0, 2);
+            File subDir = join(OBJECTS_DIR, subDirName);
+
+            // Only search if the corresponding subdirectory exists.
+            if (subDir.isDirectory()) {
+                String restOfShortId = shortId.substring(2);
+                String[] objectFileNames = subDir.list();
+                List<String> matches = new ArrayList<>();
+
+                if (objectFileNames != null) {
+                    for (String fileName : objectFileNames) {
+                        if (fileName.startsWith(restOfShortId)) {
+                            matches.add(subDirName + fileName);
+                        }
+                    }
+                }
+
+                // If and only if we found exactly one match, we have our result.
+                if (matches.size() == 1) {
+                    result = matches.get(0);
+                }
+            }
+        }
+
+        return result;
     }
 }
