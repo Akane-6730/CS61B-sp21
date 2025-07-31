@@ -137,8 +137,7 @@ public class Repository {
         updateHead(currentBranch);
 
         // Clear the staging area
-        index.clear();
-        index.save();
+        Index.clearIndex();
     }
 
     /**
@@ -247,7 +246,47 @@ public class Repository {
     }
 
     public void checkoutBranch(String branchName) {
+        if (!join(HEADS_DIR, branchName).exists()) {
+            System.out.println("No such branch exists.");
+            return;
+        }
+        if (getCurrentBranch().equals(branchName)) {
+            System.out.println("No need to checkout the current branch.");
+            return;
+        }
 
+        String targetCommitId = readContentsAsString(join(HEADS_DIR, branchName));
+        Commit targetCommit = Commit.load(targetCommitId);
+
+        // --- Untracked File Overwrite Check ---
+        assert targetCommit != null;
+        Set<String> targetTrackedFiles = targetCommit.getAllFiles().keySet();
+        List<String> untrackedFiles = getUntrackedFiles();
+
+        for (String untrackedFile : untrackedFiles) {
+            if (targetTrackedFiles.contains(untrackedFile)) {
+                System.out.println("There is an untracked file in the way; "
+                        + "delete it, or add and commit it first.");
+                return;
+            }
+        }
+
+        // --- Perform Checkout Operations ---
+        for (String filePath : targetTrackedFiles) {
+            restoreFile(targetCommit, filePath);
+        }
+
+        Commit currentCommit = getCurrentCommit();
+        Set<String> currentTrackedFiles = currentCommit.getAllFiles().keySet();
+        for (String filePath : currentTrackedFiles) {
+            if (!targetTrackedFiles.contains(filePath)) {
+                restrictedDelete(join(CWD, filePath));
+            }
+        }
+
+        Index.clearIndex();
+
+        updateHead(branchName);
     }
 
     /**
@@ -478,6 +517,13 @@ public class Repository {
 
     // --- Status Command Helpers ---
     private void printUntrackedFiles() {
+        List<String> untrackedFiles = getUntrackedFiles();
+
+        Collections.sort(untrackedFiles);
+        untrackedFiles.forEach(System.out::println);
+    }
+
+    private List<String> getUntrackedFiles() {
         Index index = Index.load();
         List<String> untrackedFiles = new ArrayList<>();
 
@@ -487,9 +533,7 @@ public class Repository {
         Set<String> stagedForRemovalFileNames = index.getStagedRemovals().keySet();
         getUntrackedFiles("", trackedFiles,
                 stagedForAdditionFileNames, stagedForRemovalFileNames, untrackedFiles);
-
-        Collections.sort(untrackedFiles);
-        untrackedFiles.forEach(System.out::println);
+        return untrackedFiles;
     }
 
     // Including files that have been staged for removal,

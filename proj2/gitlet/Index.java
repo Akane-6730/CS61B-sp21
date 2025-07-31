@@ -174,4 +174,9 @@ public class Index implements Serializable {
     public void save() {
         writeObject(INDEX, this);
     }
+
+    public static void clearIndex() {
+        Index index = new Index();
+        index.save();
+    }
 }
