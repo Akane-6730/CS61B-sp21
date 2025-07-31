@@ -326,6 +326,18 @@ public class Repository {
         updateBranchHead(branchName, getHeadCommitId());
     }
 
+    public void removeBranch(String branchName) {
+        if (!join(HEADS_DIR, branchName).exists()) {
+            System.out.println("A branch with that name does not exist.");
+            return;
+        }
+        if (getCurrentBranch().equals(branchName)) {
+            System.out.println("Cannot remove the current branch.");
+            return;
+        }
+        join(HEADS_DIR, branchName).delete();
+    }
+
     // =================================================================
     // Section 3: Private Helper Methods - Grouped by Feature
     // =================================================================

@@ -88,6 +88,10 @@ public class Main {
                 checkExactNumberOfOperands(length, 2);
                 repo.branch(args[1]);
                 break;
+            case "rm-branch":
+                checkExactNumberOfOperands(length, 2);
+                repo.removeBranch(args[1]);
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);
