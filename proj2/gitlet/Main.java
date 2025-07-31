@@ -84,6 +84,10 @@ public class Main {
                     System.exit(0);
                 }
                 break;
+            case "branch":
+                checkExactNumberOfOperands(length, 2);
+                repo.branch(args[1]);
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);

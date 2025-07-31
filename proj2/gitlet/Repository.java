@@ -273,8 +273,18 @@ public class Repository {
         Commit commit = Commit.load(commitId);
         if (commit == null) {
             System.out.println("No commit with that id exists.");
+            return;
         }
         restoreFile(commit, filePath);
+    }
+
+    public void branch(String branchName) {
+        if (join(HEADS_DIR, branchName).exists()) {
+            System.out.println("A branch with that name already exists.");
+            return;
+        }
+        // Create the branch
+        updateBranchHead(branchName, getHeadCommitId());
     }
 
     // =================================================================
