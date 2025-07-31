@@ -61,6 +61,10 @@ public class Main {
                 checkExactNumberOfOperands(length, 1);
                 repo.globalLog();
                 break;
+            case "find":
+                checkExactNumberOfOperands(length, 2);
+                repo.find(args[1]);
+                break;
             case "status":
                 checkExactNumberOfOperands(length, 1);
                 repo.status();

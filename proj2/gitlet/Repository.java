@@ -37,7 +37,8 @@ public class Repository {
      */
     public void init() {
         if (GITLET_DIR.exists()) {
-            System.out.println("A Gitlet version-control system already exists in the current directory.");
+            System.out.println("A Gitlet version-control system "
+                    + "already exists in the current directory.");
             return;
         }
         // Create the directory structure.
@@ -152,7 +153,8 @@ public class Repository {
         Commit currentCommit = getCurrentCommit();
         for (String filePath : filePaths) {
             String trackedFileId = currentCommit.getTrackedFileId(filePath);
-            // If the file is tracked, remove it from the index and delete it from the working directory.
+            // If the file is tracked,
+            // remove it from the index and delete it from the working directory.
             if (trackedFileId != null) {
                 index.remove(filePath, trackedFileId);
                 restrictedDelete(join(CWD, filePath));
@@ -180,27 +182,25 @@ public class Repository {
     }
 
     public void globalLog() {
-        String[] subDirNames = OBJECTS_DIR.list();
-        if (subDirNames == null) {
-            return;
+        List<Commit> allCommits = getAllCommits();
+        for (Commit commit : allCommits) {
+            commit.printCommit();
+        }
+    }
+
+    public void find(String commitMessage) {
+        List<Commit> allCommits = getAllCommits();
+        boolean found = false;
+
+        for (Commit commit : allCommits) {
+            if (commit.getMessage().equals(commitMessage)) {
+                System.out.println(commit.getId());
+                found = true;
+            }
         }
 
-        for (String dirName : subDirNames) {
-            File subDir = join(OBJECTS_DIR, dirName);
-            List<String> objectFileNames = plainFilenamesIn(subDir);
-            if (objectFileNames == null) {
-                continue;
-            }
-
-            for (String fileName : objectFileNames) {
-                File objectFile = join(subDir, fileName);
-                try {
-                    Commit commit = readObject(objectFile, Commit.class);
-                    commit.printCommit();
-                } catch (IllegalArgumentException | ClassCastException e) {
-                    // not a commit object, skip it
-                }
-            }
+        if (!found) {
+            System.out.println("Found no commit with that message.");
         }
     }
 
@@ -246,14 +246,14 @@ public class Repository {
         System.out.println();
     }
 
-
     public void checkoutBranch(String branchName) {
 
     }
 
     /**
-     * Takes the version of the file as it exists in the head commit and puts it in the working directory,
-     * overwriting the version of the file that’s already there if there is one.
+     * Takes the version of the file as it exists in the head commit and
+     * puts it in the working directory, overwriting the version of the
+     * file that’s already there if there is one.
      * The new version of the file is not staged.
      * @param filePath the path of the file to checkout.
      */
@@ -431,6 +431,41 @@ public class Repository {
         writeContents(targetFile, content);
     }
 
+    // --- Log Command Helpers ---
+
+    /**
+     * Gets all the commits in the repository.
+     * @return A list of all the commits in the repository.
+     */
+    private List<Commit> getAllCommits() {
+        List<Commit> allCommits = new ArrayList<>();
+        String[] subDirNames = OBJECTS_DIR.list();
+        if (subDirNames == null) {
+            return allCommits;
+        }
+
+        for (String dirName : subDirNames) {
+            File subDir = join(OBJECTS_DIR, dirName);
+            List<String> objectFileNames = plainFilenamesIn(subDir);
+            if (objectFileNames == null) {
+                continue;
+            }
+
+            for (String fileName : objectFileNames) {
+                File objectFile = join(subDir, fileName);
+                try {
+                    Commit commit = readObject(objectFile, Commit.class);
+                    allCommits.add(commit);
+                } catch (IllegalArgumentException | ClassCastException e) {
+                    // not a commit object, skip it
+                }
+            }
+        }
+
+        return allCommits;
+    }
+
+
     // --- Status Command Helpers ---
     private void printUntrackedFiles() {
         Index index = Index.load();
@@ -440,13 +475,15 @@ public class Repository {
         Set<String> trackedFiles = headCommit.getAllFiles().keySet();
         Set<String> stagedForAdditionFileNames = index.getStagedAdditions().keySet();
         Set<String> stagedForRemovalFileNames = index.getStagedRemovals().keySet();
-        getUntrackedFiles("", trackedFiles, stagedForAdditionFileNames, stagedForRemovalFileNames, untrackedFiles);
+        getUntrackedFiles("", trackedFiles,
+                stagedForAdditionFileNames, stagedForRemovalFileNames, untrackedFiles);
 
         Collections.sort(untrackedFiles);
         untrackedFiles.forEach(System.out::println);
     }
 
-    // Including files that have been staged for removal, but then re-created without Gitlet’s knowledge.
+    // Including files that have been staged for removal,
+    // but then re-created without Gitlet’s knowledge.
     private void getUntrackedFiles(String dirPath, Set<String> trackedFiles,
                                    Set<String> stagedForAdditionFiles,
                                    Set<String> stagedForRemovalFiles,

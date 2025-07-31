@@ -190,7 +190,6 @@ public class Tree extends GitObject {
 
     /**
      * Builds a Tree object from a map of file paths to their SHA-1 IDs.
-     *
      * NOTE:
      * - The root Tree object is not saved to disk, but its entries are saved to disk
      * as they are added.
@@ -214,7 +213,7 @@ public class Tree extends GitObject {
      * @param id The SHA-1 ID of the object this entry points to.
      */
     public void addEntry(String path, String id) {
-        if (path.length() == 0 || path.isEmpty()) {
+        if (path.isEmpty()) {
             return;
         }
         String[] parts = path.split("/");
