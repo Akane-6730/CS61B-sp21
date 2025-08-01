@@ -96,6 +96,10 @@ public class Main {
                 checkExactNumberOfOperands(length, 2);
                 repo.reset(args[1]);
                 break;
+            case "merge":
+                checkExactNumberOfOperands(length, 2);
+                repo.merge(args[1]);
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);

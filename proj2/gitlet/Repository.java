@@ -328,6 +328,47 @@ public class Repository {
         }
     }
 
+    public void merge(String branchName) {
+        if (!Index.load().isEmpty()) {
+            System.out.println("You have uncommitted changes.");
+            return;
+        }
+        String currentBranch = getCurrentBranch();
+        if (currentBranch.equals(branchName)) {
+            System.out.println("Cannot merge a branch with itself.");
+            return;
+        }
+
+        String otherBranchCommitId = getBranchCommitId(branchName);
+        if (otherBranchCommitId == null) {
+            return;
+        }
+        String currentBranchCommitId = getHeadCommitId();
+
+        String splitPoint = getSplitPoint(currentBranchCommitId, otherBranchCommitId);
+        assert splitPoint != null;
+        if (splitPoint.equals(otherBranchCommitId)) {
+            System.out.println("Given branch is an ancestor of the current branch.");
+            return;
+        }
+
+        if (splitPoint.equals(currentBranchCommitId)) {
+            System.out.println("Current branch fast-forwarded.");
+            checkoutBranch(branchName);
+            return;
+        }
+
+        List<String> untrackedFiles = getUntrackedFiles();
+        if (!untrackedFiles.isEmpty()) {
+            System.out.println("There is an untracked file in the way; "
+                    + "delete it, or add and commit it first.");
+            return;
+        }
+    }
+
+
+
+
     // =================================================================
     // Section 3: Private Helper Methods - Grouped by Feature
     // =================================================================
@@ -650,5 +691,72 @@ public class Repository {
         }
 
         return result;
+    }
+
+    // --- Merge Command Helpers ---
+    private String getBranchCommitId(String branchName) {
+        File branchFile = join(HEADS_DIR, branchName);
+        if (!branchFile.exists()) {
+            System.out.println("A branch with that name does not exist.");
+            return null;
+        }
+        return readContentsAsString(branchFile);
+    }
+
+    private String getSplitPoint(String commitId1, String commitId2) {
+        Set<String> ancestors1 = getAncestors(commitId1);
+
+        Queue<String> queue = new LinkedList<>();
+        Set<String> visited = new HashSet<>();
+
+        queue.offer(commitId2);
+        visited.add(commitId2);
+
+        while (!queue.isEmpty()) {
+            String currentCommitId = queue.poll();
+            if (ancestors1.contains(currentCommitId)) {
+                return currentCommitId;
+            }
+
+            Commit currentCommit = Commit.load(currentCommitId);
+            assert currentCommit != null;
+            String parentId = currentCommit.getParent();
+
+            if (parentId != null && visited.add(parentId)) {
+                queue.offer(parentId);
+            }
+            String secondParentId = currentCommit.getSecondParent();
+            if (secondParentId != null && visited.add(secondParentId)) {
+                queue.offer(secondParentId);
+            }
+        }
+
+        return null; // Should not happen
+    }
+
+    private Set<String> getAncestors(String commitId) {
+        Set<String> ancestors = new HashSet<>();
+        dfs(commitId, ancestors);
+        return ancestors;
+    }
+
+    private void dfs(String commitId, Set<String> ancestors) {
+        ancestors.add(commitId);
+        Commit commit = Commit.load(commitId);
+        if (commit == null) {
+            return;
+        }
+        String parentId = commit.getParent();
+        if (parentId != null) {
+            if (ancestors.add(parentId)) {
+                dfs(parentId, ancestors);
+            }
+        }
+        String secondParentId = commit.getSecondParent();
+        if (secondParentId != null) {
+            if (ancestors.add(secondParentId)) {
+                dfs(secondParentId, ancestors);
+            }
+        }
     }
 }
