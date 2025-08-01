@@ -109,7 +109,7 @@ public class Tree extends GitObject {
             // Append each entry's information in a fixed, standardized format.
             // A simple format like "{type} {id} {name}\n" is robust and easy to debug.
             // The newline character '\n' acts as a clear separator between entries.
-            contentBuilder.append(entry.type).append(" ").append(entry.id).append(" ").append(name).append("\n");
+            contentBuilder.append(String.format("%s %s %s\n", entry.type, entry.id, name));
         }
 
         // Convert the final, aggregated string into a byte array using a standard

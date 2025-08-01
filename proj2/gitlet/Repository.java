@@ -124,8 +124,6 @@ public class Repository {
         newTree.save();
         String newTreeId = newTree.getId();
 
-        // TODO: What if it's the merge case?
-
         Commit newCommit = new Commit(message, headCommitId, null, newTreeId);
         newCommit.save();
 
@@ -364,6 +362,58 @@ public class Repository {
                     + "delete it, or add and commit it first.");
             return;
         }
+
+        Commit currentCommit = getCurrentCommit();
+        Commit givenCommit = Commit.load(otherBranchCommitId);
+        assert givenCommit != null;
+        Commit splitCommit = Commit.load(splitPoint);
+        assert splitCommit != null;
+        Map<String, String> currentFiles = currentCommit.getAllFiles();
+        Map<String, String> givenFiles = givenCommit.getAllFiles();
+        Map<String, String> splitFiles = splitCommit.getAllFiles();
+
+        Set<String> allFilePaths = new HashSet<>();
+        allFilePaths.addAll(currentFiles.keySet());
+        allFilePaths.addAll(givenFiles.keySet());
+        allFilePaths.addAll(splitFiles.keySet());
+
+        Map<String, String> filesToMerge = new HashMap<>();
+
+        for (String filePath : allFilePaths) {
+            String currentId = currentFiles.get(filePath);
+            String givenId = givenFiles.get(filePath);
+            String splitId = splitFiles.get(filePath);
+
+            boolean modifiedInCurrent = isModified(currentId, splitId);
+            boolean modifiedInGiven = isModified(givenId, splitId);
+
+            if (!modifiedInCurrent && modifiedInGiven) {
+                // removed in given
+                if (givenId == null) {
+                    restrictedDelete(join(CWD, filePath));
+                } else {
+                    filesToMerge.put(filePath, givenId);
+                    restoreFile(givenCommit, filePath);
+                }
+            } else if (modifiedInCurrent && !modifiedInGiven) {
+                if (currentId != null) {
+                    filesToMerge.put(filePath, null);
+                }
+            } else if (!modifiedInCurrent && !modifiedInGiven) {
+                filesToMerge.put(filePath, currentId);
+            } else {
+                // Modified the same in both branches
+                if (Objects.equals(currentId, givenId)) {
+                    // Neither removed
+                    if (currentId != null) {
+                        filesToMerge.put(filePath, currentId);
+                    }
+                }
+                // Conflict!
+            }
+
+        }
+        commitMerge(branchName, filesToMerge);
     }
 
 
@@ -758,5 +808,26 @@ public class Repository {
                 dfs(secondParentId, ancestors);
             }
         }
+    }
+
+    private boolean isModified(String id1, String id2) {
+        return !Objects.equals(id1, id2);
+    }
+
+    private void commitMerge(String givenBranchName, Map<String, String> conflictedFiles) {
+        String currentBranchName = getCurrentBranch();
+        String currentBranchCommitId = getBranchCommitId(currentBranchName);
+        String givenBranchCommitId = getBranchCommitId(givenBranchName);
+        String message = "Merged " + givenBranchName
+                + " into " + currentBranchName + ".";
+
+        Tree mergedTree = Tree.buildTreeFromMap(conflictedFiles);
+        mergedTree.save();
+
+        Commit mergeCommit = new Commit(message, currentBranchCommitId,
+                givenBranchCommitId, mergedTree.getId());
+        mergeCommit.save();
+        updateBranchHead(currentBranchName, mergeCommit.getId());
+        Index.clearIndex();
     }
 }
