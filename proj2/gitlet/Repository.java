@@ -1,6 +1,7 @@
 package gitlet;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import static gitlet.Utils.*;
@@ -349,62 +350,12 @@ public class Repository {
 
         boolean hasConflict = performMergeLogic(context);
 
+        commitMerge(branchName, context.filesToMerge);
+
         if (hasConflict) {
             System.out.println("Encountered a merge conflict.");
         }
-
-        commitMerge(branchName, context.filesToMerge);
     }
-
-    /**
-     * Handles all pre-condition checks for the merge command.
-     * @param branchName The name of the branch to merge.
-     * @return The commit ID of the given branch if all checks pass, otherwise null.
-     */
-    private String handleMergePreChecks(String branchName) {
-        if (!Index.load().isEmpty()) {
-            System.out.println("You have uncommitted changes.");
-            return null;
-        }
-        String currentBranch = getCurrentBranch();
-        if (currentBranch.equals(branchName)) {
-            System.out.println("Cannot merge a branch with itself.");
-            return null;
-        }
-
-        String otherBranchCommitId = getBranchCommitId(branchName);
-        if (otherBranchCommitId == null) {
-            return null;
-        }
-
-        List<String> untrackedFiles = getUntrackedFiles();
-        if (!untrackedFiles.isEmpty()) {
-            System.out.println("There is an untracked file in the way; "
-                    + "delete it, or add and commit it first.");
-            return null;
-        }
-
-        return otherBranchCommitId;
-    }
-
-    private boolean handleSpecialMergeCases(String currentBranchCommitId,
-                                           String otherBranchCommitId,
-                                           String splitPoint,
-                                           String branchName) {
-        if (splitPoint.equals(otherBranchCommitId)) {
-            System.out.println("Given branch is an ancestor of the current branch.");
-            return true;
-        }
-
-        if (splitPoint.equals(currentBranchCommitId)) {
-            System.out.println("Current branch fast-forwarded.");
-            checkoutBranch(branchName);
-            return true;
-        }
-        return false;
-    }
-
-
 
     // =================================================================
     // Section 3: Private Helper Methods - Grouped by Feature
@@ -801,21 +752,52 @@ public class Repository {
         return !Objects.equals(id1, id2);
     }
 
-    private void commitMerge(String givenBranchName, Map<String, String> filesToMerge) {
-        String currentBranchName = getCurrentBranch();
-        String currentBranchCommitId = getBranchCommitId(currentBranchName);
-        String givenBranchCommitId = getBranchCommitId(givenBranchName);
-        String message = "Merged " + givenBranchName
-                + " into " + currentBranchName + ".";
+    /**
+     * Handles all pre-condition checks for the merge command.
+     * @param branchName The name of the branch to merge.
+     * @return The commit ID of the given branch if all checks pass, otherwise null.
+     */
+    private String handleMergePreChecks(String branchName) {
+        if (!Index.load().isEmpty()) {
+            System.out.println("You have uncommitted changes.");
+            return null;
+        }
+        String currentBranch = getCurrentBranch();
+        if (currentBranch.equals(branchName)) {
+            System.out.println("Cannot merge a branch with itself.");
+            return null;
+        }
 
-        Tree mergedTree = Tree.buildTreeFromMap(filesToMerge);
-        mergedTree.save();
+        String otherBranchCommitId = getBranchCommitId(branchName);
+        if (otherBranchCommitId == null) {
+            return null;
+        }
 
-        Commit mergeCommit = new Commit(message, currentBranchCommitId,
-                givenBranchCommitId, mergedTree.getId());
-        mergeCommit.save();
-        updateBranchHead(currentBranchName, mergeCommit.getId());
-        Index.clearIndex();
+        List<String> untrackedFiles = getUntrackedFiles();
+        if (!untrackedFiles.isEmpty()) {
+            System.out.println("There is an untracked file in the way; "
+                    + "delete it, or add and commit it first.");
+            return null;
+        }
+
+        return otherBranchCommitId;
+    }
+
+    private boolean handleSpecialMergeCases(String currentBranchCommitId,
+                                            String otherBranchCommitId,
+                                            String splitPoint,
+                                            String branchName) {
+        if (splitPoint.equals(otherBranchCommitId)) {
+            System.out.println("Given branch is an ancestor of the current branch.");
+            return true;
+        }
+
+        if (splitPoint.equals(currentBranchCommitId)) {
+            System.out.println("Current branch fast-forwarded.");
+            checkoutBranch(branchName);
+            return true;
+        }
+        return false;
     }
 
     private boolean performMergeLogic(MergeContext context) {
@@ -856,6 +838,20 @@ public class Repository {
                     }
                 } else { // conflict
                     hasConflict = true;
+                    String currentContent = (currentId != null)
+                            ? new String(Blob.load(currentId).getSerializableContent(),
+                            StandardCharsets.UTF_8) : "";
+                    String givenContent = (givenId != null)
+                            ? new String(Blob.load(givenId).getSerializableContent(),
+                            StandardCharsets.UTF_8) : "";
+                    File conflictFile = join(CWD, filePath);
+                    String conflictContent = "<<<<<<< HEAD\n" + currentContent
+                            + "=======\n" + givenContent + ">>>>>>>\n";
+                    writeContents(conflictFile, conflictContent);
+
+                    Blob conflictBlob = new Blob(conflictFile);
+                    conflictBlob.save();
+                    context.filesToMerge.put(filePath, conflictBlob.getId());
                 }
             }
 
@@ -863,6 +859,24 @@ public class Repository {
 
         return hasConflict;
     }
+
+    private void commitMerge(String givenBranchName, Map<String, String> filesToMerge) {
+        String currentBranchName = getCurrentBranch();
+        String currentBranchCommitId = getBranchCommitId(currentBranchName);
+        String givenBranchCommitId = getBranchCommitId(givenBranchName);
+        String message = "Merged " + givenBranchName
+                + " into " + currentBranchName + ".";
+
+        Tree mergedTree = Tree.buildTreeFromMap(filesToMerge);
+        mergedTree.save();
+
+        Commit mergeCommit = new Commit(message, currentBranchCommitId,
+                givenBranchCommitId, mergedTree.getId());
+        mergeCommit.save();
+        updateBranchHead(currentBranchName, mergeCommit.getId());
+        Index.clearIndex();
+    }
+
 
     // =================================================================
     // Section 4: Private Helper Class
